@@ -12,11 +12,9 @@ templateFolder = 'templates';
 templateFiles = {
     '10zl_wzorcowe.jpg', % Użyj tutaj nazwy Twojego pliku wzorcowego
     '20zl_wzorcowe.jpg', 
-    '50zl_wzorcowe.jpg', 
-    '100zl_wzorcowe.jpg',
-    '200zl_wzorcowe.jpg'
+    '50zl_wzorcowe.jpg'
 };
-templateNames = {'10 PLN', '20 PLN', '50 PLN', '100 PLN', '200 PLN'};
+templateNames = {'10 PLN', '20 PLN', '50 PLN'};
 
 templateData = struct('Name', {}, 'Image', {}, 'Points', {}, 'Features', {}, 'Mask', {});
 MAX_FEATURES = 10000; % Ustalamy limit 10 000 cech

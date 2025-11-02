@@ -337,68 +337,56 @@ end
 
 
 function displayResults(image, stats, nominal, eccentricityThreshold, acceptance)
-    % (Ta funkcja pozostaje bez zmian)
-    
-    fprintf('Krok 5: Wyświetlanie wyników...\n');
-    
-    figure; 
-    imshow(image); 
-    hold on; 
-    
-    % jeśli nie ma wad => akceptuj
+    % Zmienione: pokazuj tylko poważne (major) wady. Logika drobnych wad została usunięta.
+    fprintf('Krok 5: Wyświetlanie wyników (tylko poważne wady)...\n');
+
+    figure;
+    imshow(image);
+    hold on;
+
+    % jeśli nie ma żadnych wykrytych obszarów => akceptuj
     if isempty(stats)
         titleStr = sprintf('Nominał: %s. Status: ZAAKCEPTOWANY', nominal);
-        fprintf('\n--- WERDYKT: BANKNOT ZAAKCEPTOWANY ---\n');
+        fprintf('\n--- WERDYKT: BANKNOT ZAAKCEPTOWANY (brak wad) ---\n');
         title(titleStr, 'FontSize', 14); hold off; return;
     end
 
-    % policz minor/major
+    % Wyfiltruj tylko poważne wady
     isMajor = arrayfun(@(s) isfield(s,'Severity') && strcmpi(s.Severity,'major'), stats);
-    nMajor = sum(isMajor);
-    nMinor = numel(stats) - nMajor;
-    totalMinorAreaPct = sum([stats(~isMajor).AreaPct]);
+    majorStats = stats(isMajor);
+    nMajor = numel(majorStats);
 
-    % decyzja
-    accepted = (nMajor == 0) && ...
-               (nMinor <= acceptance.MINOR_MAX_COUNT) && ...
-               (totalMinorAreaPct <= acceptance.MINOR_TOTAL_AREA_PCT);
+    % Rysuj tylko poważne wady (czerwone obramowanie)
+    for i = 1:length(majorStats)
+        bb = majorStats(i).BoundingBox;
+        rectangle('Position', bb, 'EdgeColor', 'r', 'LineWidth', 2);
 
-    % rysowanie
-    for i = 1:length(stats)
-        bb = stats(i).BoundingBox;
-        color = 'y';
-        if isMajor(i), color = 'r'; end
-        rectangle('Position', bb, 'EdgeColor', color, 'LineWidth', 2);
-
-        % etykieta
-        if isfield(stats(i), 'Type')
-            label = stats(i).Type;
+        % etykieta (tylko major)
+        if isfield(majorStats(i), 'Type')
+            label = majorStats(i).Type;
         else
-            if stats(i).Eccentricity > eccentricityThreshold
+            if majorStats(i).Eccentricity > eccentricityThreshold
                 label = 'Rozdarcie / Zagniecenie';
             else
                 label = 'Plama / Napis';
             end
         end
-        if isMajor(i)
-            label = [label ' (poważna)'];
-        else
-            label = [label ' (drobna)'];
-        end
+        label = [label ' (poważna)'];
         text(bb(1), bb(2) - 10, label, 'Color', 'yellow', 'FontSize', 10, 'FontWeight', 'bold');
-        fprintf('   > Wada #%d: Typ: %s, Powierzchnia: %d px (%.3f%%), %s\n', ...
-            i, label, stats(i).Area, 100*stats(i).AreaPct, ternary(isMajor(i),'MAJOR','MINOR'));
+        fprintf('   > Wada #%d: Typ: %s, Powierzchnia: %d px (%.3f%%), MAJOR\n', ...
+            i, label, majorStats(i).Area, 100*majorStats(i).AreaPct);
     end
 
-    if accepted
-        titleStr = sprintf('Nominał: %s. Status: ZAAKCEPTOWANY (drobne wady: %d, łączna %.2f%%)', ...
-            nominal, nMinor, 100*totalMinorAreaPct);
-        fprintf('\n--- WERDYKT: BANKNOT ZAAKCEPTOWANY ---\n');
+    % Decyzja: akceptujemy jeśli brak poważnych wad
+    if nMajor == 0
+        titleStr = sprintf('Nominał: %s. Status: ZAAKCEPTOWANY (brak poważnych wad)', nominal);
+        fprintf('\n--- WERDYKT: BANKNOT ZAAKCEPTOWANY (brak poważnych wad) ---\n');
     else
-        titleStr = sprintf('Nominał: %s. Status: DO SPRAWDZENIA (poważne: %d, drobne: %d)', ...
-            nominal, nMajor, nMinor);
+        titleStr = sprintf('Nominał: %s. Status: DO SPRAWDZENIA (poważne: %d)', nominal, nMajor);
         fprintf('\n--- WERDYKT: BANKNOT DO SPRAWDZENIA ---\n');
     end
+    title(titleStr, 'FontSize', 14);
+    hold off;
 
     title(titleStr, 'FontSize', 14);
     hold off;
