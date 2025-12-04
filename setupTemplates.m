@@ -7,23 +7,30 @@ clear; clc; close all;
 
 fprintf('Rozpoczynam analizę wzorców i filtrowanie cech...\n');
 
+
+
+
 % --- Konfiguracja ---
 templateFolder = 'templates';
-templateFiles = {
-    '10zl_wzorcowe.jpg', % Użyj tutaj nazwy Twojego pliku wzorcowego
-    '20zl_wzorcowe.jpg', 
-    '50zl_wzorcowe.jpg'
+templateFiles = {...
+    '10zl_wzorcowe_1.jpg', '10zl_wzorcowe_2.jpg', '10zl_wzorcowe_3.jpg', ... % 3 wzorce dla 10 PLN
+    '20zl_wzorcowe_1.jpg', '20zl_wzorcowe_2.jpg', '20zl_wzorcowe_3.jpg', ... % 3 wzorce dla 20 PLN
+    '50zl_wzorcowe_1.jpg', '50zl_wzorcowe_2.jpg', '50zl_wzorcowe_3.jpg' ...  % 3 wzorce dla 50 PLN
 };
-templateNames = {'10 PLN', '20 PLN', '50 PLN'};
+templateNames = {'10 PLN #1', '10 PLN #2', '10 PLN #3', ...
+                 '20 PLN #1', '20 PLN #2', '20 PLN #3', ...
+                 '50 PLN #1', '50 PLN #2', '50 PLN #3'};
 
 templateData = struct('Name', {}, 'Image', {}, 'Points', {}, 'Features', {}, 'Mask', {});
 MAX_FEATURES = 10000; % Ustalamy limit 10 000 cech
 
 % --- Przetwarzanie ---
+fprintf('Liczba plików do przetworzenia: %d\n', length(templateFiles));
 for i = 1:length(templateFiles)
     fileName = templateFiles{i};
     fullPath = fullfile(templateFolder, fileName);
     
+    fprintf('Sprawdzam plik: %s\n', fullPath);
     if ~exist(fullPath, 'file')
         warning('Nie znaleziono pliku wzorca: %s. Pomijam.', fullPath);
         continue;
