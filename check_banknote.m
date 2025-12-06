@@ -1,12 +1,3 @@
-% --- check_banknote.m (Wersja 3.1 - Ograniczenie Cech) ---
-%
-% Cel: Ograniczenie liczby cech na obrazie testowym.
-% Wymagania: Nowy plik "templateFeatures.mat" (stworzony przez v3.1)
-
-% Allow calling code to set `testImagePath`, `MAX_FEATURES` or `FAST_MODE` before running.
-% If not provided, script will run interactively as before.
-% Note: script still clears most variables to keep behavior predictable.
-% Keep any externally provided configuration variables.
 preserveVars = {'testImagePath','MAX_FEATURES','FAST_MODE'};
 keep = false;
 for k = 1:numel(preserveVars)
@@ -17,7 +8,6 @@ end
 if ~keep
     clear; clc; close all;
 else
-    % remove everything except preserved variables
     vars = who;
     remove = setdiff(vars, preserveVars);
     clear(remove{:}); clc; close all;
@@ -25,60 +15,60 @@ end
 
 fprintf('--- System Wizyjnej Kontroli Banknotów (v3.1 Ograniczenie Cech) ---\n\n');
 
-% --- Stałe Konfiguracyjne ---
+% Parametry konfiguracyjne systemu
 MATCH_THRESHOLD = 0.8; 
 MIN_DEFECT_AREA = 150; 
 ECCENTRICITY_THRESHOLD = 0.92;
 THRESHOLD_MULTIPLIER = 1.8; 
-% Reguły akceptacji (tolerancja drobnych wad)
+% Kryteria akceptacji jakości banknotu
 ACCEPTANCE = struct( ...
-    'MINOR_MAX_COUNT', 3, ...            % maks. liczba drobnych wad
-    'MINOR_TOTAL_AREA_PCT', 0.006, ...   % łączna powierzchnia drobnych wad (0.6%)
-    'MAJOR_AREA_PCT', 0.015, ...         % pojedyncza wada >1.5% = poważna
-    'EDGE_MARGIN', 12 ...                % margines przy krawędzi dla rozdarć
+    'MINOR_MAX_COUNT', 3, ...            % maksymalna liczba drobnych wad
+    'MINOR_TOTAL_AREA_PCT', 0.006, ...   % dopuszczalna łączna powierzchnia drobnych wad
+    'MAJOR_AREA_PCT', 0.015, ...         % próg klasyfikacji wady jako poważnej (1.5%)
+    'EDGE_MARGIN', 12 ...                % margines brzegowy
 );
-% Allow overriding MAX_FEATURES and FAST_MODE from the caller to speed up runs
+
 if ~exist('MAX_FEATURES','var') || isempty(MAX_FEATURES)
-    MAX_FEATURES = 10000; % Default limit for test image features
+    MAX_FEATURES = 10000; 
 end
 if ~exist('FAST_MODE','var') || isempty(FAST_MODE)
-    FAST_MODE = false; % When true, reduce work (fewer features)
+    FAST_MODE = false;
 end
 if FAST_MODE
     MAX_FEATURES = min(MAX_FEATURES, 3000);
     fprintf('FAST_MODE: ON (MAX_FEATURES=%d)\n', MAX_FEATURES);
 end
 
-% --- Główna Logika ---
+% Główna procedura weryfikacji
 try
     data = load('templateFeatures.mat');
     templateData = data.templateData;
     fprintf('Załadowano bazę %d wzorców banknotów.\n', length(templateData));
     
-    % Zawsze pytaj o ścieżkę (ignoruj wcześniej ustawioną zmienną)
+    % Wczytanie obrazu testowego
     testImagePath = input('Podaj ścieżkę do obrazu testowego: ', 's');
 
     testImageColor = imread(testImagePath);
     testImageGray = rgb2gray(testImageColor);
     
-    % --- Krok 1 i 2: Identyfikacja i Wyrównanie ---
+    % Identyfikacja nominału i rejestracja geometryczna
     [nominal, templateImage, templateMask, registeredImage, tform, outputView] = ...
         identifyAndAlign(testImageColor, testImageGray, templateData, MATCH_THRESHOLD, MAX_FEATURES);
     
-    % --- Krok 3: Przekształcanie Maski ---
+    % Transformacja maski wzorcowej
     fprintf('Krok 3: Przekształcanie maski...\n');
     registeredMask = imwarp(templateMask, tform, 'OutputView', outputView, 'Interp', 'nearest');
     
-    % --- Krok 4: Detekcja Wad ---
+    % Detekcja defektów i uszkodzeń
     [defectStats, ~] = detectDefects(registeredImage, templateImage, registeredMask, templateMask, MIN_DEFECT_AREA, THRESHOLD_MULTIPLIER);
     
-    % --- Krok 5: Prezentacja Wyników ---
+    % Wizualizacja wyników analizy
     displayResults(registeredImage, defectStats, nominal, ECCENTRICITY_THRESHOLD, ACCEPTANCE);
     
 catch ME 
     if strcmp(ME.identifier, 'MATLAB:load:couldNotFindFile')
-        fprintf('\nBŁĄD KRYTYCZNY: Nie znaleziono pliku "templateFeatures.mat"!\n');
-        fprintf('Uruchom najpierw "setupTemplates.m" (wersję 3.1).\n');
+        fprintf('\nBŁĄD: Brak pliku "templateFeatures.mat".\n');
+        fprintf('Należy wcześniej wykonać skrypt "setupTemplates.m".\n');
     elseif strcmp(ME.identifier, 'MATLAB:images:imread:fileDoesNotExist')
         fprintf('\nBŁĄD: Plik obrazu testowego nie istnieje: %s\n', testImagePath);
     else
@@ -88,14 +78,14 @@ catch ME
 end
 
 
-% --- Funkcje Pomocnicze (Lokalne) ---
+% Funkcje pomocnicze
 
 function [nominal, templateImage, templateMask, registeredImage, tform, outputView] = ...
     identifyAndAlign(testImageColor, testImageGray, templateData, matchThreshold, maxFeatures)
     
     fprintf('Krok 1: Identyfikacja nominału...\n');
 
-    % Detect features but cap the number of strongest to MAX_FEATURES for speed
+    % Detekcja punktów kluczowych na obrazie testowym
     pointsTest_all = detectORBFeatures(testImageGray);
     pointsTest = selectStrongest(pointsTest_all, maxFeatures);
 
@@ -108,7 +98,7 @@ function [nominal, templateImage, templateMask, registeredImage, tform, outputVi
     matchCounts = zeros(nTemplates, 1);
     allMatchPairs = cell(nTemplates, 1);
     
-    % Extract all template features and sizes into simple arrays
+    % Przygotowanie danych wzorcowych do porównania
     szTest = size(featuresTest, 2);
     fprintf('   > DEBUG: Test descriptor size = %d columns\n', szTest);
     
@@ -122,7 +112,7 @@ function [nominal, templateImage, templateMask, registeredImage, tform, outputVi
             i, templateData(i).Name, templateSizes(i));
     end
     
-    % Check compatibility and filter to only compatible templates
+    % Weryfikacja kompatybilności deskryptorów
     compatibleIdx = find(templateSizes == szTest);
     nIncompatible = nTemplates - length(compatibleIdx);
     
@@ -134,15 +124,15 @@ function [nominal, templateImage, templateMask, registeredImage, tform, outputVi
     end
     
     if isempty(compatibleIdx)
-        error('BRAK KOMPATYBILNYCH SZABLONÓW! Wszystkie szablony mają inny rozmiar deskryptorów niż obraz testowy.');
+        error('Brak kompatybilnych wzorców - niezgodność wymiarów deskryptorów.');
     end
     
-    % Match ONLY against compatible templates (serial processing for reliability)
+    % Procedura dopasowywania cech
     for j = 1:length(compatibleIdx)
         i = compatibleIdx(j);
         fprintf('   > DEBUG: Matching with template %d (%s)...\n', i, templateData(i).Name);
         
-        % Double-check before matching
+        % Walidacja zgodności wymiarów przed dopasowaniem
         sz1 = size(featuresTest, 2);
         sz2 = size(templateFeatures{i}, 2);
         if sz1 ~= sz2
@@ -160,7 +150,7 @@ function [nominal, templateImage, templateMask, registeredImage, tform, outputVi
     [maxMatches, bestIndex] = max(matchCounts);
     
     if maxMatches < 10 
-        error('Nie udało się rozpoznać nominału. Zbyt niska jakość obrazu lub brak wzorca.');
+        error('Niewystarczająca liczba dopasowań - niemożliwa identyfikacja nominału.');
     end
     
     nominal = templateData(bestIndex).Name;
@@ -170,6 +160,7 @@ function [nominal, templateImage, templateMask, registeredImage, tform, outputVi
     fprintf('   > Rozpoznano: %s (Liczba "czystych" cech: %d)\n', nominal, maxMatches);
     fprintf('Krok 2: Wyrównywanie obrazu (rejestracja)...\n');
     
+    % Estymacja transformacji geometrycznej
     bestPairs = allMatchPairs{bestIndex};
     matchedPointsTest = validPointsTest(bestPairs(:, 1));
     matchedPointsTemplate = templateData(bestIndex).Points(bestPairs(:, 2));
@@ -183,58 +174,43 @@ function [nominal, templateImage, templateMask, registeredImage, tform, outputVi
 end
 
 
-
-
-% --- Wklej to w miejsce STAREJ funkcji detectDefects ---
-
 function [stats, defectMap] = detectDefects(registeredImage, templateImage, registeredMask, templateMask, minArea, ~)
     
-    % ============================================================================
-    % PODEJŚCIE V11.0: DETEKCJA BRAKUJĄCYCH CZĘŚCI + ANOMALIE WEWNĘTRZNE
-    % 
-    % KLUCZOWE SPOSTRZEŻENIE:
-    % - Zagięcia/rozdarcia = BRAKUJĄCE CZĘŚCI geometrii banknotu
-    % - Po rejestracji mamy MASKĘ SZABLONU = idealny kształt
-    % - Możemy wykryć gdzie banknut NIE WYPEŁNIA idealnego kształtu!
-    %
-    % STRATEGIA:
-    % 1. Znajdź rzeczywistą maskę banknotu (gdzie są piksele)
-    % 2. Porównaj z maską szablonu (gdzie POWINNY być piksele)  
-    % 3. Różnica = brakujące części (zagięcia, rozdarcia, dziury)
-    % 4. Dodatkowo: anomalie kolorów wewnątrz (plamy, napisy)
-    % ============================================================================
+    % Funkcja realizuje detekcję defektów banknotu poprzez analizę
+    % geometryczną (brakujące fragmenty) oraz kolorymetryczną (plamy, napisy).
+    % Wykorzystuje porównanie rzeczywistej maski banknotu z idealną maską wzorca
+    % oraz analizę różnic kolorystycznych w przestrzeni LAB.
     
     fprintf('Krok 4: Wykrywanie wad (v11.0 - Brakujące części + Anomalie)...\n');
 
-    % Parametry
-    MIN_MISSING_AREA = 1000;    % Minimalny obszar brakującej części
-    MIN_COLOR_ANOMALY = 3000;   % Minimalny obszar anomalii kolorów
-    EDGE_MARGIN = 10;           % Margines brzegów
+    % Parametry detekcji defektów
+    MIN_MISSING_AREA = 1000;    % próg powierzchni dla brakujących fragmentów
+    MIN_COLOR_ANOMALY = 3000;   % próg powierzchni dla anomalii kolorystycznych
+    EDGE_MARGIN = 10;           % szerokość marginesu brzegowego
     
-    % === 1. WYKRYJ BRAKUJĄCE CZĘŚCI BANKNOTU ===
+    % Detekcja brakujących fragmentów (zagięcia, rozdarcia)
     fprintf('   > Szukam brakujących części (zagięcia/rozdarcia)...\n');
     
     % Stwórz rzeczywistą maskę banknotu (gdzie są piksele)
     regGray = rgb2gray(registeredImage);
-    realMask = regGray > 10; % proste progowanie - gdzie jest cokolwiek
+    realMask = regGray > 10;
     
-    % Wygładź i wypełnij małe dziury
+    % Operacje morfologiczne w celu wygładzenia maski
     realMask = imclose(realMask, strel('disk', 5));
     realMask = imfill(realMask, 'holes');
     realMask = bwareaopen(realMask, 500);
     
-    % DEBUG: Porównaj powierzchnie
+    % Analiza porównawcza powierzchni
     areaTemplate = sum(templateMask(:));
     areaReal = sum(realMask(:));
     missingPercent = ((areaTemplate - areaReal) / areaTemplate) * 100;
     fprintf('   > Powierzchnia szablonu: %d px, rzeczywista: %d px (brakuje %.2f%%)\n', ...
         areaTemplate, areaReal, missingPercent);
     
-    % Gdzie POWINIEN być banknut (maska szablonu) vs gdzie JEST (realMask)
-    % Różnica = brakujące części!
+    % Identyfikacja brakujących fragmentów poprzez różnicę logiczną masek
     missingParts = templateMask & ~realMask;
     
-    % Usuń małe artefakty i brzegi
+    % Filtracja artefaktów i eliminacja obszarów brzegowych
     missingParts = bwareaopen(missingParts, MIN_MISSING_AREA);
     [h, w] = size(missingParts);
     edgeMask = true(h, w);
@@ -247,16 +223,16 @@ function [stats, defectMap] = detectDefects(registeredImage, templateImage, regi
     nMissing = bwconncomp(missingParts).NumObjects;
     fprintf('   > Znaleziono %d brakujących części\n', nMissing);
     
-    % === 2. WYKRYJ ANOMALIE KOLORÓW (plamy, napisy) ===
+    % Detekcja anomalii kolorymetrycznych
     fprintf('   > Szukam anomalii kolorów (plamy, napisy)...\n');
     lab_reg = rgb2lab(imgaussfilt(registeredImage, 3));
     lab_temp = rgb2lab(imgaussfilt(templateImage, 3));
     
-    % Delta E w LAB - TYLKO wewnątrz rzeczywistej maski
+    % Obliczenie różnic kolorystycznych w przestrzeni LAB
     deltaE = sqrt(sum((lab_reg - lab_temp).^2, 3));
     deltaE(~realMask) = 0;
     
-    % BARDZO WYSOKIE progowanie (tylko duże różnice)
+    % Adaptacyjne progowanie różnic kolorystycznych
     if any(deltaE(:) > 0)
         threshold = mean(deltaE(deltaE > 0)) + 3*std(deltaE(deltaE > 0));
     else
@@ -269,11 +245,11 @@ function [stats, defectMap] = detectDefects(registeredImage, templateImage, regi
     nColor = bwconncomp(colorAnomalies).NumObjects;
     fprintf('   > Znaleziono %d anomalii kolorów\n', nColor);
     
-    % === 3. POŁĄCZ BRAKUJĄCE CZĘŚCI + ANOMALIE KOLORÓW ===
+    % Agregacja wykrytych defektów
     fprintf('   > Łączę wykryte wady...\n');
     defectMap = missingParts | colorAnomalies;
 
-    % === 4. ANALIZA WYKRYTYCH REGIONÓW + KLASYFIKACJA ===
+    % Ekstrakcja cech i klasyfikacja defektów
     cc = bwconncomp(defectMap);
     rawStats = regionprops(cc, 'Area', 'BoundingBox', 'Eccentricity', 'PixelIdxList');
 
@@ -283,7 +259,7 @@ function [stats, defectMap] = detectDefects(registeredImage, templateImage, regi
         s = rawStats(i);
         areaPct = double(s.Area) / double(areaTemplate);
 
-        % udział pikseli z map: która dominuje w regionie?
+        % Determinacja typu defektu na podstawie składowych
         pix = s.PixelIdxList;
         fracMissing = sum(missingParts(pix)) / numel(pix);
         fracColor = sum(colorAnomalies(pix)) / numel(pix);
@@ -293,7 +269,7 @@ function [stats, defectMap] = detectDefects(registeredImage, templateImage, regi
             typeStr = 'Plama / Napis';
         end
 
-        % heurystyka powagi uszkodzenia
+        % Ocena ciężkości defektu zgodnie z ustalonymi kryteriami
         isEdgeTouch = false;
         bb = s.BoundingBox;
         x1 = round(max(1, bb(1))); y1 = round(max(1, bb(2)));
@@ -304,7 +280,7 @@ function [stats, defectMap] = detectDefects(registeredImage, templateImage, regi
             isEdgeTouch = true;
         end
 
-        majorByArea = areaPct >= 0.015;         % 1.5% obszaru
+        majorByArea = areaPct >= 0.015;
         majorEdgeTear = (s.Eccentricity > 0.92) && isEdgeTouch && (areaPct >= 0.001);
         if majorByArea || majorEdgeTear
             severityStr = 'major';
@@ -337,31 +313,31 @@ end
 
 
 function displayResults(image, stats, nominal, eccentricityThreshold, acceptance)
-    % Zmienione: pokazuj tylko poważne (major) wady. Logika drobnych wad została usunięta.
+    % Funkcja realizuje wizualizację wyników analizy z zaznaczeniem wykrytych defektów
     fprintf('Krok 5: Wyświetlanie wyników (tylko poważne wady)...\n');
 
     figure;
     imshow(image);
     hold on;
 
-    % jeśli nie ma żadnych wykrytych obszarów => akceptuj
+    % Przypadek braku wykrytych defektów
     if isempty(stats)
         titleStr = sprintf('Nominał: %s. Status: ZAAKCEPTOWANY', nominal);
         fprintf('\n--- WERDYKT: BANKNOT ZAAKCEPTOWANY (brak wad) ---\n');
         title(titleStr, 'FontSize', 14); hold off; return;
     end
 
-    % Wyfiltruj tylko poważne wady
+    % Selekcja defektów o statusie poważnym
     isMajor = arrayfun(@(s) isfield(s,'Severity') && strcmpi(s.Severity,'major'), stats);
     majorStats = stats(isMajor);
     nMajor = numel(majorStats);
 
-    % Rysuj tylko poważne wady (czerwone obramowanie)
+    % Wizualizacja poważnych defektów
     for i = 1:length(majorStats)
         bb = majorStats(i).BoundingBox;
         rectangle('Position', bb, 'EdgeColor', 'r', 'LineWidth', 2);
 
-        % etykieta (tylko major)
+        % Generacja etykiety tekstowej
         if isfield(majorStats(i), 'Type')
             label = majorStats(i).Type;
         else
@@ -377,7 +353,7 @@ function displayResults(image, stats, nominal, eccentricityThreshold, acceptance
             i, label, majorStats(i).Area, 100*majorStats(i).AreaPct);
     end
 
-    % Decyzja: akceptujemy jeśli brak poważnych wad
+    % Procedura decyzyjna akceptacji banknotu
     if nMajor == 0
         titleStr = sprintf('Nominał: %s. Status: ZAAKCEPTOWANY (brak poważnych wad)', nominal);
         fprintf('\n--- WERDYKT: BANKNOT ZAAKCEPTOWANY (brak poważnych wad) ---\n');
@@ -392,7 +368,7 @@ function displayResults(image, stats, nominal, eccentricityThreshold, acceptance
     hold off;
 end
 
-% mały pomocnik do czytelnego fprintf
+% Funkcja pomocnicza operatora trójargumentowego
 function out = ternary(cond, a, b)
     if cond, out = a; else, out = b; end
 end
