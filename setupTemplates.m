@@ -15,11 +15,17 @@ templateFolder = 'templates';
 templateFiles = {...
     '10zl_wzorcowe_1.jpg', '10zl_wzorcowe_2.jpg', '10zl_wzorcowe_3.jpg', ... % 3 wzorce dla 10 PLN
     '20zl_wzorcowe_1.jpg', '20zl_wzorcowe_2.jpg', '20zl_wzorcowe_3.jpg', ... % 3 wzorce dla 20 PLN
-    '50zl_wzorcowe_1.jpg', '50zl_wzorcowe_2.jpg', '50zl_wzorcowe_3.jpg' ...  % 3 wzorce dla 50 PLN
+    '50zl_wzorcowe_1.jpg', '50zl_wzorcowe_2.jpg', '50zl_wzorcowe_3.jpg', ... % 3 wzorce dla 50 PLN
+    '100zl_wzorcowe_1.jpg', '100zl_wzorcowe_2.jpg', '100zl_wzorcowe_3.jpg', ... % 3 wzorce dla 100 PLN
+    '200zl_wzorcowe_1.jpg', '200zl_wzorcowe_2.jpg', '200zl_wzorcowe_3.jpg', ... % 3 wzorce dla 200 PLN
+    '500zl_wzorcowe_1.jpg', '500zl_wzorcowe_2.jpg', '500zl_wzorcowe_3.jpg' ...  % 3 wzorce dla 500 PLN
 };
 templateNames = {'10 PLN #1', '10 PLN #2', '10 PLN #3', ...
                  '20 PLN #1', '20 PLN #2', '20 PLN #3', ...
-                 '50 PLN #1', '50 PLN #2', '50 PLN #3'};
+                 '50 PLN #1', '50 PLN #2', '50 PLN #3', ...
+                 '100 PLN #1', '100 PLN #2', '100 PLN #3', ...
+                 '200 PLN #1', '200 PLN #2', '200 PLN #3', ...
+                 '500 PLN #1', '500 PLN #2', '500 PLN #3'};
 
 templateData = struct('Name', {}, 'Image', {}, 'Points', {}, 'Features', {}, 'Mask', {});
 MAX_FEATURES = 10000; % Ustalamy limit 10 000 cech
