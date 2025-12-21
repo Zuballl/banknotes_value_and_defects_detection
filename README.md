@@ -42,25 +42,30 @@ Program poprosi o podanie ścieżki do obrazu testowego, a następnie przeprowad
 - Rejestrację geometryczną obrazu
 - Detekcję defektów i uszkodzeń
 
-## Algorytm działania
+## Wykorzystane techniki
 
-### Etap przygotowania wzorców
+### Identyfikacja nominału
+- **ORB (Oriented FAST and Rotated BRIEF)** - detekcja i deskrypcja punktów kluczowych
+- **Feature matching** - dopasowanie deskryptorów binarnych (Hamming distance)
+- **Transformacja rzutowa** - wyrównanie geometryczne (estimateGeometricTransform2D)
 
-1. Wczytanie obrazów referencyjnych
-2. Generacja maski w celu separacji banknotu od tła (przestrzeń HSV)
-3. Detekcja punktów kluczowych (ORB)
-4. Filtracja punktów do obszaru banknotu
-5. Ekstrakcja deskryptorów
+### Segmentacja banknotu
+- **Progowanie Otsu** - automatyczna binaryzacja kanału saturacji (HSV)
+- **Operacje morfologiczne** - zamknięcie, wypełnianie dziur, usuwanie małych obszarów
 
-### Etap weryfikacji
+### Detekcja uszkodzeń mechanicznych
+- **Różnica masek logicznych** - porównanie maski rzeczywistej z wzorcową
+- **Analiza komponentów spójnych** - identyfikacja brakujących fragmentów
+- **Filtracja brzegowa** - eliminacja artefaktów rejestracji
 
-1. **Identyfikacja nominału** - dopasowanie cech testowych do wzorców
-2. **Rejestracja geometryczna** - wyrównanie obrazu metodą transformacji rzutowej
-3. **Transformacja maski wzorcowej** - dopasowanie do geometrii testowej
-4. **Detekcja defektów**:
-   - Analiza brakujących fragmentów (zagięcia, rozdarcia)
-   - Detekcja anomalii kolorystycznych (plamy, napisy)
-5. **Klasyfikacja wad** - ocena typu i ciężkości defektu
+### Detekcja anomalii wizualnych
+- **Przestrzeń kolorów LAB** - analiza różnic perceptualnych (metryka ΔE)
+- **Filtr Gaussa** - wygładzenie przed porównaniem kolorów
+- **Progowanie adaptacyjne** - μ + 3σ dla różnic kolorystycznych
+
+### Klasyfikacja defektów
+- **Analiza regionów** - powierzchnia, mimośród, położenie brzegowe
+- **Próg dwupoziomowy** - minor (≤1.5%) vs major (>1.5% lub krawędziowe)
 
 ## Parametry konfiguracyjne
 
@@ -71,16 +76,9 @@ Kluczowe parametry znajdują się w pliku `check_banknote.m`:
 - `MIN_DEFECT_AREA` - minimalna powierzchnia wykrywanego defektu (150 px)
 - `MAJOR_AREA_PCT` - próg klasyfikacji wady jako poważnej (1.5%)
 
-## Uwagi implementacyjne
+## Wyniki
 
-- System wykorzystuje punkty charakterystyczne ORB ze względu na odporność na rotację i skalowanie
-- Detekcja defektów opiera się na porównaniu maski rzeczywistej z idealną maską wzorca
-- Anomalie kolorystyczne wykrywane są w przestrzeni LAB (metryka ΔE)
-- Klasyfikacja defektów uwzględnia zarówno powierzchnię, jak i położenie względem brzegów
-
-## Struktura wyników
-
-Program wyświetla obraz z zaznaczonymi defektami oraz prezentuje werdykt:
+Program generuje wizualizację z zaznaczonymi defektami i wydaje werdykt:
 - **ZAAKCEPTOWANY** - brak poważnych wad
 - **DO SPRAWDZENIA** - wykryto defekty wymagające inspekcji
 
