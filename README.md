@@ -1,85 +1,98 @@
-# System wizyjnej kontroli banknotów
+# Banknote Value and Defects Detection System
 
-System służy do automatycznej identyfikacji nominału polskich banknotów oraz detekcji ich uszkodzeń mechanicznych i wizualnych.
+An automated vision-based system for identifying Polish banknote denominations and detecting mechanical and visual defects using MATLAB and computer vision techniques.
 
-## Wymagania
+## Overview
 
-- MATLAB R2020a lub nowszy
+This project implements a machine vision system that:
+- Classifies banknotes by denomination (10, 20, 50, 100, 200 PLN)
+- Performs geometric alignment relative to reference templates
+- Detects and classifies surface defects (scratches, tears, creases, discoloration)
+- Produces quality verdicts (accepted / requires inspection)
+
+The system combines feature-based matching, image segmentation, and multi-channel defect analysis to provide robust denomination recognition and damage assessment.
+
+## Requirements
+
+- MATLAB R2020a or newer
 - Computer Vision Toolbox
 - Image Processing Toolbox
 
-## Struktura projektu
+## Project Structure
 
 ```
-├── setupTemplates.m          # Przygotowanie bazy wzorców
-├── check_banknote.m          # Główny program weryfikacji
-├── templates/                # Katalog z obrazami wzorcowymi
-└── test/                     # Katalog z obrazami testowymi
+├── setupTemplates.m          # Feature extraction from reference images
+├── check_banknote.m          # Main verification script
+├── templates/                # Reference banknote images
+└── test/                     # Test images for validation
 ```
 
-## Instrukcja użytkowania
+## Getting Started
 
-### 1. Przygotowanie bazy wzorców
+### 1. Setup Template Features
 
-Przed pierwszym uruchomieniem należy wygenerować bazę cech charakterystycznych:
+Before running the verification system, extract features from reference images:
 
 ```matlab
 run setupTemplates.m
 ```
 
-Skrypt przetworzy obrazy wzorcowe banknotów (10, 20, 50, 100, 200 PLN) i zapisze wyekstrahowane cechy do pliku `templateFeatures.mat`.
+This script processes the reference banknote images (one per denomination, three variants each) and saves extracted ORB features to `templateFeatures.mat`.
 
-### 2. Weryfikacja banknotu
+### 2. Run Banknote Verification
 
-Po przygotowaniu bazy wzorców można przystąpić do analizy:
+After setup, analyze test images:
 
 ```matlab
 run check_banknote.m
 ```
 
-Program poprosi o podanie ścieżki do obrazu testowego, a następnie przeprowadzi:
-- Identyfikację nominału
-- Rejestrację geometryczną obrazu
-- Detekcję defektów i uszkodzeń
+The program will prompt for a test image path and perform:
+- Denomination classification via feature matching
+- Geometric registration to reference templates
+- Defect detection and severity assessment
 
-## Wykorzystane techniki
+## Technical Approach
 
-### Identyfikacja nominału
-- **ORB (Oriented FAST and Rotated BRIEF)** - detekcja i deskrypcja punktów kluczowych
-- **Feature matching** - dopasowanie deskryptorów binarnych (Hamming distance)
-- **Transformacja rzutowa** - wyrównanie geometryczne (estimateGeometricTransform2D)
+### Denomination Recognition
+- **ORB (Oriented FAST and Rotated BRIEF)** – robust feature point detection and binary descriptors
+- **Feature Matching** – Hamming distance-based descriptor comparison
+- **Projective Transformation** – geometric alignment using `estimateGeometricTransform2D`
 
-### Segmentacja banknotu
-- **Progowanie Otsu** - automatyczna binaryzacja kanału saturacji (HSV)
-- **Operacje morfologiczne** - zamknięcie, wypełnianie dziur, usuwanie małych obszarów
+### Image Segmentation
+- **Otsu Thresholding** – automatic binarization in HSV saturation channel
+- **Morphological Operations** – closing, hole filling, and small region removal
 
-### Detekcja uszkodzeń mechanicznych
-- **Różnica masek logicznych** - porównanie maski rzeczywistej z wzorcową
-- **Analiza komponentów spójnych** - identyfikacja brakujących fragmentów
-- **Filtracja brzegowa** - eliminacja artefaktów rejestracji
+### Mechanical Defect Detection
+- **Mask Comparison** – logical difference between detected and reference masks
+- **Connected Component Analysis** – identification of missing fragments
+- **Edge-based Filtering** – artifact removal from registration errors
 
-### Detekcja anomalii wizualnych
-- **Przestrzeń kolorów LAB** - analiza różnic perceptualnych (metryka ΔE)
-- **Filtr Gaussa** - wygładzenie przed porównaniem kolorów
-- **Progowanie adaptacyjne** - μ + 3σ dla różnic kolorystycznych
+### Visual Anomaly Detection
+- **LAB Color Space** – perceptually-uniform color difference analysis (ΔE metric)
+- **Gaussian Smoothing** – color normalization before comparison
+- **Adaptive Thresholding** – μ + 3σ criterion for color deviation detection
 
-### Klasyfikacja defektów
-- **Analiza regionów** - powierzchnia, mimośród, położenie brzegowe
-- **Próg dwupoziomowy** - minor (≤1.5%) vs major (>1.5% lub krawędziowe)
+### Defect Classification
+- **Region Properties** – area, eccentricity, edge proximity analysis
+- **Two-Tier Thresholding** – minor defects (≤1.5%) vs. major defects (>1.5% or edge-located)
 
-## Parametry konfiguracyjne
+## Configuration Parameters
 
-Kluczowe parametry znajdują się w pliku `check_banknote.m`:
+Key tunable parameters in `check_banknote.m`:
 
-- `MAX_FEATURES` - maksymalna liczba ekstrahowanych cech (domyślnie 10000)
-- `MATCH_THRESHOLD` - próg podobieństwa przy dopasowywaniu (0.8)
-- `MIN_DEFECT_AREA` - minimalna powierzchnia wykrywanego defektu (150 px)
-- `MAJOR_AREA_PCT` - próg klasyfikacji wady jako poważnej (1.5%)
+- `MAX_FEATURES` – maximum features to extract per image (default: 10,000)
+- `MATCH_THRESHOLD` – feature matching similarity threshold (0.8)
+- `MIN_DEFECT_AREA` – minimum detectable defect size in pixels (150)
+- `MAJOR_AREA_PCT` – area threshold for major defect classification (1.5%)
+- `EDGE_MARGIN` – pixel margin for edge region exclusion (12)
+- `ACCEPTANCE.MINOR_MAX_COUNT` – maximum allowed minor defects (3)
 
-## Wyniki
+## Output
 
-Program generuje wizualizację z zaznaczonymi defektami i wydaje werdykt:
-- **ZAAKCEPTOWANY** - brak poważnych wad
-- **DO SPRAWDZENIA** - wykryto defekty wymagające inspekcji
+The system displays:
+- Annotated image with detected defects highlighted
+- Individual defect reports (location, type, severity)
+- Final verdict: **ACCEPTED** (no significant flaws) or **REQUIRES INSPECTION** (defects detected)
 
 
